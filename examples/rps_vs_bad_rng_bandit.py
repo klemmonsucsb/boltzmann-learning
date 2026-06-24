@@ -58,7 +58,7 @@ class RPSVsBadRNG:
         """
         return self.measurement, None
 
-    def play(self, p1_action) -> tuple[float, dict[str, float]]:
+    def play(self, p1_action, bandit_feedback: bool = False) -> tuple[float, dict[str, float]]:
         """Play game
 
         Args:
@@ -84,14 +84,17 @@ class RPSVsBadRNG:
         cost = self.cost(p1_action, p2_action)
         # costs for all actions of player 1
         all_costs = OrderedDict([(a, self.cost(a, p2_action)) for a in self.action_set])
-        return cost, all_costs, p2_action
+        if bandit_feedback:
+            # Only reveal the cost of the action actually taken; mask the rest.
+            all_costs = OrderedDict([(a, cost if a == p1_action else None) for a in self.action_set])
+        return cost, all_costs, p2_action   
 
 
 if __name__ == '__main__':
     from sklearn import svm, neural_network
     from examples.benchmark_methods import BayesianEstimator, SklearnModel
-    from examples.simulation_utils.utils import GamePlay
-    from learning_games import LearningGame
+    from examples.simulation_utils.utils_bandit import GamePlay
+    from learning_games_bandit import LearningGame
     import pickle
 
     M: int = 101_000  # the total number of rounds to play the game
