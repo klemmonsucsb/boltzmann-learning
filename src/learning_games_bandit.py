@@ -260,7 +260,8 @@ class LearningGame(DecisionMaker):
         average_cost = 0
         (probabilities, entropy) = self.get_Boltzmann_distribution(measurement, time)
         for k, a in enumerate(self._action_set):
-            average_cost += probabilities[k] * costs[a]
+            if costs[a] is not None:
+                average_cost += probabilities[k] * costs[a]
         self.total_cost = decay * self.total_cost + average_cost
 
         for m in self._measurement_set:
@@ -286,14 +287,13 @@ class LearningGame(DecisionMaker):
                 weight = measurement[m]
 
             for a in self._action_set:
-                for a in self._action_set:
-                    if costs[a] is None:
-                        self.energy[m][a] = decay * self.energy[m][a]
-                    elif bandit_correction == "importance_weight" and a == action:
-                        idx_a = list(self._action_set).index(a)
-                        self.energy[m][a] = decay * (self.energy[m][a] + (costs[a] / probabilities[idx_a]) * weight)
-                    else:
-                        self.energy[m][a] = decay * (self.energy[m][a] + costs[a] * weight)
+                if costs[a] is None:
+                    self.energy[m][a] = decay * self.energy[m][a]
+                elif bandit_correction == "importance_weight" and a == action:
+                    idx_a = list(self._action_set).index(a)
+                    self.energy[m][a] = decay * (self.energy[m][a] + (costs[a] / probabilities[idx_a]) * weight)
+                else:
+                    self.energy[m][a] = decay * (self.energy[m][a] + costs[a] * weight)
 
                 # Update normalization_sum, which is given by
         #     W[time_k]=\sum_{l=1}^k  exp(-lambda(time_k-time_l))

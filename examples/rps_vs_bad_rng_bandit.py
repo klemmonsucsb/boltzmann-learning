@@ -97,7 +97,7 @@ if __name__ == '__main__':
     from learning_games_bandit import LearningGame
     import pickle
 
-    M: int = 101_000  # the total number of rounds to play the game
+    M: int = 2_000  # the total number of rounds to play the game
     length_measurement: int = 5  #
     switch_time = 20_000
     beta_values = [1e-2, 1e-1, 1e0, 1e1]
@@ -167,5 +167,6 @@ if __name__ == '__main__':
                   horizon=M,
                   disp_results_per_iter=int(M/10),
                   binary_cont_measurement=False,
-                  store_energy_hist=False)
+                  store_energy_hist=False,
+                  bandit_feedback=True)
     gp.play_games(f'../data/rps_{M}_{str(measurement_to_label)}')
