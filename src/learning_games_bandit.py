@@ -236,7 +236,7 @@ class LearningGame(DecisionMaker):
         return (action, probabilities, entropy)
 
     def update_energies(
-        self, measurement: Measurement, costs: dict[Action, float], time: float = 0.0, **kwargs
+        self, measurement: Measurement, costs: dict[Action, float], time: float = 0.0, action: Action = None, bandit_correction: str = "none", **kwargs
     ):
         """Updates energies based on after-the-fact costs
 
@@ -248,6 +248,7 @@ class LearningGame(DecisionMaker):
 
         # update bounds
         for k, a in enumerate(self._action_set):
+            if costs[a] is None: continue
             if costs[a] < self.min_cost:
                 self.min_cost = costs[a]
             if costs[a] > self.max_cost:
@@ -285,7 +286,14 @@ class LearningGame(DecisionMaker):
                 weight = measurement[m]
 
             for a in self._action_set:
-                self.energy[m][a] = decay * (self.energy[m][a] + costs[a] * weight)
+                for a in self._action_set:
+                    if costs[a] is None:
+                        self.energy[m][a] = decay * self.energy[m][a]
+                    elif bandit_correction == "importance_weight" and a == action:
+                        idx_a = list(self._action_set).index(a)
+                        self.energy[m][a] = decay * (self.energy[m][a] + (costs[a] / probabilities[idx_a]) * weight)
+                    else:
+                        self.energy[m][a] = decay * (self.energy[m][a] + costs[a] * weight)
 
                 # Update normalization_sum, which is given by
         #     W[time_k]=\sum_{l=1}^k  exp(-lambda(time_k-time_l))
