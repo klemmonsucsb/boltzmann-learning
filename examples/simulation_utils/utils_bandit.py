@@ -136,8 +136,9 @@ def generate_probabilities_matrix(prob_matrix: np.array) -> (list[str], np.array
 class GamePlay:
     """Creates a game for each decision maker to play. Runs in series, but could be parallelized."""
     def __init__(self, decision_makers: list, game, horizon: int,
-                 disp_results_per_iter: int, store_energy_hist: bool,
-                 time_index: np.ndarray = None, binary_cont_measurement: bool = False):
+             disp_results_per_iter: int, store_energy_hist: bool,
+             time_index: np.ndarray = None, binary_cont_measurement: bool = False,
+             bandit_feedback: bool = False):
         """
         Args:
             decision_makers (list): decision-making algorithms to be tested
@@ -161,6 +162,7 @@ class GamePlay:
         self.disp_results_per_iter = disp_results_per_iter
         self.binary_cont_measurement = binary_cont_measurement
         self._store_energy_hist = store_energy_hist
+        self.bandit_feedback = bandit_feedback
 
     def play_games(self, save_to: str):
         """ Play all the games
@@ -207,7 +209,7 @@ class GamePlay:
             action, prob, entropy[idx] = decision_maker.get_action(measurement=measurement, time=time_i,
                                                                    raw_measurement=raw_measurement)
             # print('action time {}'.format(time.perf_counter() - st))
-            costs[idx], all_costs, opponent_action = game.play(action)
+            costs[idx], all_costs, opponent_action = game.play(action, bandit_feedback=self.bandit_feedback)
             p1_action.append(action)
             probs.append(prob)
             if self._store_energy_hist: # TODO: uncomment
@@ -219,8 +221,8 @@ class GamePlay:
                             if total_key not in energies.keys():
                                 energies[total_key] = []
                             energies[total_key].append(val2)
-            if prob is None:
-                expected_costs[idx] = None
+            if prob is None or self.bandit_feedback:
+                expected_costs[idx] = np.nan
             else:
                 expected_costs[idx] = (np.array([v for k, v in all_costs.items()]) * prob).sum()
             # Learn
