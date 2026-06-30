@@ -63,11 +63,14 @@ class RPSVsBadRNG:
 
         Args:
             p1_action: action for player 1
+            bandit_feedback: if True, only reveals the cost of the chosen action
 
         Returns: 
             tuple[float,dict(str,float)]
+            
             cost (float): -1 if player 1 wins, +1 if player 1 loses, 0 draw
             all_costs (dict[str,float]): dictionary with costs for all actions of player 1
+            
         """
         # select action for player 2
         self.time_counter += 1
@@ -92,12 +95,12 @@ class RPSVsBadRNG:
 
 if __name__ == '__main__':
     from sklearn import svm, neural_network
-    from examples.benchmark_methods import BayesianEstimator, SklearnModel
+    from examples.benchmark_methods_bandit import BayesianEstimator, SklearnModel
     from examples.simulation_utils.utils_bandit import GamePlay
     from learning_games_bandit import LearningGame
     import pickle
 
-    M: int = 2_000  # the total number of rounds to play the game
+    M: int = 40_000  # the total number of rounds to play the game
     length_measurement: int = 5  #
     switch_time = 20_000
     beta_values = [1e-2, 1e-1, 1e0, 1e1]
@@ -169,4 +172,4 @@ if __name__ == '__main__':
                   binary_cont_measurement=False,
                   store_energy_hist=False,
                   bandit_feedback=True)
-    gp.play_games(f'../data/rps_{M}_{str(measurement_to_label)}')
+    gp.play_games(f'../data/rps_{M}_importanceweight')

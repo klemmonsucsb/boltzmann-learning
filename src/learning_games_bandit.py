@@ -235,7 +235,7 @@ class LearningGame(DecisionMaker):
         action = list(self._action_set)[action_index]
         return (action, probabilities, entropy)
 
-    def update_energies(
+    def update_energies_legacy(
         self, measurement: Measurement, costs: dict[Action, float], time: float = 0.0, action: Action = None, bandit_correction: str = "none", **kwargs
     ):
         """Updates energies based on after-the-fact costs
@@ -303,6 +303,70 @@ class LearningGame(DecisionMaker):
         self.normalization_sum = decay * self.normalization_sum + 1
 
         # Update time
+        self.time_update = time
+        pass
+    def update_energies(
+        self, measurement: Measurement, costs: dict[Action, float], time: float = 0.0, action: Action = None, bandit_correction: str = "none", **kwargs
+    ):
+        """Updates energies based on after-the-fact costs securely under bandit feedback."""
+
+        # 1. Update bounds safely ignoring None values
+        for a in self._action_set:
+            if costs[a] is None: 
+                continue
+            if costs[a] < self.min_cost:
+                self.min_cost = costs[a]
+            if costs[a] > self.max_cost:
+                self.max_cost = costs[a]
+
+        decay = np.exp(-self.decay_rate * (time - self.time_update))
+
+        # 2. Extract Boltzmann distribution and track total cost
+        (probabilities, entropy) = self.get_Boltzmann_distribution(measurement, time)
+        
+        # Explicit mapping from Action object to its true index in the probability array
+        # This matches exactly how get_Boltzmann_distribution constructs its arrays
+        if self.finite_measurements:
+            action_keys = list(self.energy[measurement].keys())
+        else:
+            action_keys = list(self._action_set)
+            
+        action_to_prob = {act: probabilities[i] for i, act in enumerate(action_keys)}
+
+        is_bandit_feedback = any(v is None for v in costs.values())
+
+        if is_bandit_feedback:
+            average_cost = costs[action] if (action is not None and costs[action] is not None) else 0.0
+        else:
+            average_cost = 0.0
+            for a in self._action_set:
+                if costs[a] is not None:
+                    average_cost += action_to_prob[a] * costs[a]
+
+        self.total_cost = decay * self.total_cost + average_cost
+
+        # 3. Core Boltzmann Energy Update Loop
+        for m in self._measurement_set:
+            if self.finite_measurements:
+                weight = 1.0 if m == measurement else 0.0
+            else:
+                weight = measurement[m]
+
+            for a in self._action_set:
+                if costs[a] is None:
+                    # Unobserved action under bandit feedback — no cost applied, just decay
+                    self.energy[m][a] = decay * self.energy[m][a]
+                elif bandit_correction == "importance_weight" and a == action:
+                    # Look up probability safely using the Action object mapping
+                    prob_a = action_to_prob[a]
+                    iw_cost = costs[a] / max(prob_a, 1e-12)
+                    self.energy[m][a] = decay * (self.energy[m][a] + iw_cost * weight)
+                else:
+                    # Naive Bandit (chosen action) OR Full Information (all actions)
+                    self.energy[m][a] = decay * (self.energy[m][a] + costs[a] * weight)
+
+        # Update normalization and tracking time
+        self.normalization_sum = decay * self.normalization_sum + 1
         self.time_update = time
 
     def get_regret(

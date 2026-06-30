@@ -1,7 +1,9 @@
 import itertools
+import os
 import time
 from copy import deepcopy
 
+import decision_maker
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -180,8 +182,29 @@ class GamePlay:
                 algorithm_name = r'Boltzmann Learning | $\lambda={:.1e}, \beta={:.1e}$'\
                     .format(decision_maker.decay_rate, decision_maker.inverse_temperature)
             output = self._play_game(game_i, decision_maker)
+            import os
+            os.makedirs(os.path.dirname(save_to + f'/{algorithm_name}.pkl'), exist_ok=True)
             with open(save_to + f'/{algorithm_name}.pkl', 'wb') as f:
                 pickle.dump(output, file=f)
+            
+
+            if hasattr(decision_maker, '_visit_counts'):
+                counts = list(decision_maker._visit_counts.values())
+                counts_sorted = sorted(counts)
+                n = len(counts_sorted)
+                # median: middle value if odd, average of two middle values if even
+                if n % 2 == 1:
+                    median = counts_sorted[n // 2]
+                else:
+                    median = (counts_sorted[n // 2 - 1] + counts_sorted[n // 2]) / 2
+                sparse = sum(1 for c in counts if c <= 5)
+                never_visited = 729 - n  # 729 = 243 contexts × 3 actions
+                print(f"Visit count stats:")
+                print(f"  min={min(counts)}, max={max(counts)}, mean={sum(counts)/n:.1f}, median={median}")
+                print(f"  pairs visited: {n}/729 ({100*n/729:.1f}%)")
+                print(f"  pairs NEVER visited: {never_visited}/729 ({100*never_visited/729:.1f}%)")
+                print(f"  pairs visited ≤5 times: {sparse} ({100*sparse/n:.1f}% of visited)")
+
         print('Finished playing games.')
 
     def _play_game(self, game, decision_maker) -> dict:
@@ -225,10 +248,16 @@ class GamePlay:
                 expected_costs[idx] = np.nan
             else:
                 expected_costs[idx] = (np.array([v for k, v in all_costs.items()]) * prob).sum()
+
+            if not hasattr(decision_maker, '_visit_counts'):
+                decision_maker._visit_counts = {}
+            key = (measurement, action)
+            decision_maker._visit_counts[key] = decision_maker._visit_counts.get(key, 0) + 1
+            
             # Learn
             decision_maker.update_energies(measurement=measurement, costs=all_costs, action=action,
                                            raw_measurement=raw_measurement,
-                                           time=time_i, action_cost=costs[idx], opponent_action=opponent_action, idx=idx)
+                                           time=time_i, action_cost=costs[idx], opponent_action=opponent_action, idx=idx, bandit_correction="importance_weight")
             elapsed_time = time.perf_counter() - start_time
             # Store regret
             try:
