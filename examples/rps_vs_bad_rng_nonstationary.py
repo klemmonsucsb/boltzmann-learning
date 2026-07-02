@@ -1,5 +1,16 @@
+import sys
+from pathlib import Path
+
+# Add project root and src/ to sys.path
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
+
 import numpy as np
 from collections import OrderedDict
+
+# Now the other imports will work
+from dlinucb_decision_maker import DLinUCBDecisionMaker
 
 
 class RPSVsBadRNG:
@@ -94,8 +105,8 @@ if __name__ == '__main__':
     from learning_games import LearningGame
     import pickle
 
-    M: int = 101_000  # the total number of rounds to play the game
-    length_measurement: int = 5  #
+    M: int = 2_000  # the total number of rounds to play the game
+    length_measurement: int = 3  #
     switch_time = 20_000
     beta_values = [1e-2, 1e-1, 1e0, 1e1]
     lambda_values = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.]
@@ -132,6 +143,22 @@ if __name__ == '__main__':
 
     bayesian = BayesianEstimator(action_set=game.action_set, measurement_set=game.measurement_set)
     methods = [bayesian]
+    # --- D-LinUCB with various discount factors ---
+    for lam in [1e-3]:
+        gamma = np.exp(-lam) if lam > 0 else 1.0
+        dlinucb = DLinUCBDecisionMaker(
+            action_set=game.action_set,
+            measurement_set=game.measurement_set,
+            finite_measurements=True,
+            gamma=gamma,
+            lam=1.0,
+            delta=0.05,
+            sigma=1.0,
+            S=1.0,
+            L=1.0,
+            cost_scale=1.0
+    )
+        methods.append(dlinucb)
     # for b, l in itertools.product(beta_values, lambda_values):
     for b, l in zip(beta_values, lambda_values):
         lg = LearningGame(game.action_set, measurement_set=game.measurement_set,
@@ -165,4 +192,7 @@ if __name__ == '__main__':
                   disp_results_per_iter=int(M/10),
                   binary_cont_measurement=False,
                   store_energy_hist=False)
-    gp.play_games(f'../data/rps_{M}_{str(measurement_to_label)}')
+    import os
+    save_dir = f'data/rps_{M}_{str(measurement_to_label)}'   # relative to project root
+    os.makedirs(save_dir, exist_ok=True)
+    gp.play_games(save_dir)
