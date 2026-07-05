@@ -144,7 +144,7 @@ if __name__ == '__main__':
     bayesian = BayesianEstimator(action_set=game.action_set, measurement_set=game.measurement_set)
     methods = [] #insert bayesian into brackets to reset to sim other algorithms
     # --- D-LinUCB with various discount factors ---
-    missing_lambdas = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
+    """missing_lambdas = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
     for lam in missing_lambdas:   # [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
         gamma = np.exp(-lam) if lam > 0 else 1.0
         dlinucb = DLinUCBDecisionMaker(
@@ -164,7 +164,8 @@ if __name__ == '__main__':
         methods.append(dlinucb)
     # for b, l in itertools.product(beta_values, lambda_values):
     
-    """ for b, l in zip(beta_values, lambda_values):
+    """ 
+    for b, l in zip(beta_values, lambda_values):
         lg = LearningGame(game.action_set, measurement_set=game.measurement_set,
                             decay_rate=l, inverse_temperature=b, seed=0)
         lg.reset()
@@ -189,7 +190,7 @@ if __name__ == '__main__':
     methods.append(svm)
     methods.append(mlp)
     methods.reverse()
- """
+ 
     gp = GamePlay(decision_makers=methods,
                   game=game,
                   horizon=M,
