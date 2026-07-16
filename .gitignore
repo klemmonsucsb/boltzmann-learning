@@ -27,6 +27,10 @@ doc/sphinx/_build/
 *_old.*
 old/
 
+## Reorganized clutter (generated results + archived/superseded scripts)
+results/
+archive/
+
 ## Sync files
 .addsubfolders.unison
 .addthisfolder.unison
