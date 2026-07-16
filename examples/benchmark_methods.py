@@ -113,7 +113,11 @@ class SklearnModel(DecisionMaker):
 
         """
         if self.model_degenerate:
-            return 0, None, None
+            # FIX: this used to `return 0, None, None` -- the literal integer 0,
+            # not an actual action. Since action_set is e.g. ["R","P","S"], that
+            # meant `game.play(0)` was being called before the model was trained,
+            # silently breaking cost comparisons (0 never equals "R"/"P"/"S").
+            return self.action_set[0], None, None
         else:
             min_cost = 1e10
             best_action = ''

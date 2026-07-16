@@ -2,6 +2,7 @@ import itertools
 import time
 from copy import deepcopy
 
+import decision_maker
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -170,7 +171,8 @@ class GamePlay:
         """
         for decision_maker in self.decision_makers:
             game_i = deepcopy(self.game)  # create a copy of the game
-            algorithm_name = decision_maker.__class__.__name__
+            # use custom name if available, otherwise fall back to class name
+            algorithm_name = getattr(decision_maker, 'name', decision_maker.__class__.__name__)
             if algorithm_name == 'SklearnModel':
                 algorithm_name = decision_maker.model.__class__.__name__
             print('Playing', algorithm_name)
