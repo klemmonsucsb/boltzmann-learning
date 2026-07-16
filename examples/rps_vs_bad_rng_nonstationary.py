@@ -112,9 +112,9 @@ if __name__ == '__main__':
     lambda_values = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.]
     label_to_action = {'R': 'P', 'P': 'S', 'S': 'R'}
     rng = np.random.default_rng(11)
-    action_sequence = rng.permutation(["R", "P", "S"] * 50)
+    action_sequence = rng.choice(["R", "P", "S"], size=150)
     rng2 = np.random.default_rng(7)
-    action_sequence2 = rng2.permutation(["R", "P", "S"] * 50)
+    action_sequence2 = rng2.choice(["R", "P", "S"], size=150)
 
     # benchmark model parameters
     # whether to learn a map from measurements to label (True) or estimate the cost associated with each action (False)
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     bayesian = BayesianEstimator(action_set=game.action_set, measurement_set=game.measurement_set)
     methods = [] #insert bayesian into brackets to reset to sim other algorithms
     # --- D-LinUCB with various discount factors ---
-    missing_lambdas = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
+    missing_lambdas = [1e-3] #1e0, 1e-1, 1e-2, 1e1, 1e-4, 0.0]
     for lam in missing_lambdas:   # [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
         gamma = np.exp(-lam) if lam > 0 else 1.0
         dlinucb = DLinUCBDecisionMaker(
@@ -197,7 +197,7 @@ if __name__ == '__main__':
                   binary_cont_measurement=False,
                   store_energy_hist=False)
     import os
-    save_dir = f'data/rps_{M}_{str(measurement_to_label)}'   # relative to project root
+    save_dir = f'data/SCRATCH_rps_{M}_{str(measurement_to_label)}'   # relative to project root
     os.makedirs(save_dir, exist_ok=True)
     gp.play_games(save_dir)
 

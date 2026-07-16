@@ -11,6 +11,7 @@ from collections import OrderedDict
 
 # Now the other imports will work
 from dlinucb_decision_maker import DLinUCBDecisionMaker
+from examples.bandit_sklearn_model import BanditSklearnModel
 
 
 class RPSVsBadRNG:
@@ -144,51 +145,62 @@ if __name__ == '__main__':
     bayesian = BayesianEstimator(action_set=game.action_set, measurement_set=game.measurement_set)
     methods = [] #insert bayesian into brackets to reset to sim other algorithms
     # --- D-LinUCB with various discount factors ---
-    """missing_lambdas = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
-    for lam in missing_lambdas:   # [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
+    # gamma = exp(-lam): lam here is the *forgetting rate* swept in the paper's
+    # notation, not the ridge regularization (that's passed separately as lam=1.0
+    # below -- yes, both are conventionally called "lambda", they are NOT the same
+    # parameter; see D-LinUCB paper Section 3.1).
+    dlinucb_lambdas = [1e1, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 0.0]
+    for lam in dlinucb_lambdas:
         gamma = np.exp(-lam) if lam > 0 else 1.0
         dlinucb = DLinUCBDecisionMaker(
             action_set=game.action_set,
             measurement_set=game.measurement_set,
             finite_measurements=True,
             gamma=gamma,
-            lam=1.0,
-            delta=0.05,
+            lam=0.001,     # ridge regularization (kept small; see writeup)
+            delta=0.5,
             sigma=1.0,
             S=1.0,
             L=1.0,
             cost_scale=1.0,
             name=f'DLinUCB_lambda_{lam:.0e}'
         )
-        #
         methods.append(dlinucb)
-    # for b, l in itertools.product(beta_values, lambda_values):
-    
-    """ 
+
     for b, l in zip(beta_values, lambda_values):
         lg = LearningGame(game.action_set, measurement_set=game.measurement_set,
                             decay_rate=l, inverse_temperature=b, seed=0)
         lg.reset()
         methods.append(lg)
+    # Paper's actual best-performing config (Anderson & Hespanha, Sec 6.1) --
+    # NOT covered by the zip() above, since beta_values has only 4 entries and
+    # lambda_values has 7, so zip() silently truncates and this pairing never runs.
+    lg_paper = LearningGame(game.action_set, measurement_set=game.measurement_set,
+                             decay_rate=1e-3, inverse_temperature=1.0, seed=0)
+    lg_paper.reset()
+    lg_paper.name = 'Boltzmann lambda=1.0e-03 beta=1.0e+00 (paper config)'
+    methods.append(lg_paper)
+    # Bandit-restricted baselines: only see the cost of the action actually taken
+    # (fair vs DLinUCB/Boltzmann), forget via sliding window (matches original
+    # design), and for the MLP warm-start across retrains to avoid random-init
+    # oscillation (see bandit_sklearn_model.py docstring for why).
+    svm_model = svm.SVC(kernel='rbf')
+    bandit_svm = BanditSklearnModel(
+        window_size=data_window, action_set=game.action_set, measurement_set=game.measurement_set,
+        raw_measurement=False, measurement_to_label=measurement_to_label, finite_measurement=True,
+        policy_map=label_to_action, update_frequency=update_freq, model=svm_model, eps=0.05)
+    bandit_svm.name = 'BanditSVM'
 
-    if measurement_to_label:
-        nn_model = neural_network.MLPClassifier(random_state=random_state,
-                                                max_iter=max_train_iter,
-                                                hidden_layer_sizes=hidden_layer_sizes)
-        svm_model = svm.SVC(kernel=svm_kernel)
-    else:
-        nn_model = neural_network.MLPRegressor(random_state=random_state,
-                                               max_iter=max_train_iter,
-                                               hidden_layer_sizes=hidden_layer_sizes)
-        svm_model = svm.SVC(kernel='rbf')
-    svm = SklearnModel(window_size=data_window, action_set=game.action_set, measurement_set=game.measurement_set,
-               raw_measurement=False, measurement_to_label=measurement_to_label, finite_measurement=True, policy_map=label_to_action,
-              update_frequency=update_freq, model=svm_model)
-    mlp = SklearnModel(window_size=data_window, action_set=game.action_set, measurement_set=game.measurement_set,
-               raw_measurement=False, measurement_to_label=measurement_to_label, finite_measurement=True, policy_map=label_to_action,
-              update_frequency=update_freq, model=nn_model)
-    methods.append(svm)
-    methods.append(mlp)
+    nn_model = neural_network.MLPRegressor(random_state=random_state, max_iter=max_train_iter,
+                                           hidden_layer_sizes=hidden_layer_sizes)
+    bandit_mlp = BanditSklearnModel(
+        window_size=data_window, action_set=game.action_set, measurement_set=game.measurement_set,
+        raw_measurement=False, measurement_to_label=measurement_to_label, finite_measurement=True,
+        policy_map=label_to_action, update_frequency=update_freq, model=nn_model, eps=0.05)
+    bandit_mlp.name = 'BanditMLP'
+
+    methods.append(bandit_svm)
+    methods.append(bandit_mlp)
     methods.reverse()
  
     gp = GamePlay(decision_makers=methods,
@@ -201,4 +213,3 @@ if __name__ == '__main__':
     save_dir = f'data/rps_{M}_{str(measurement_to_label)}'   # relative to project root
     os.makedirs(save_dir, exist_ok=True)
     gp.play_games(save_dir)
-
